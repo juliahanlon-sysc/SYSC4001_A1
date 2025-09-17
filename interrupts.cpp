@@ -19,7 +19,9 @@ int main(int argc, char** argv) {
     std::string execution;  //!< string to accumulate the execution output
 
     /******************ADD YOUR VARIABLES HERE*************************/
-
+    #define CONTEXT_TIME 10; //save/restore time from when it changes from kernel to user mode
+    #deifne ISR_ACTIVITY_TIME  40; //amount of time each activity takes in ISR 
+    #define ISR_ACTIVITY_AMOUNT  0;// number of activities that are in ISR
 
 
     /******************************************************************/
