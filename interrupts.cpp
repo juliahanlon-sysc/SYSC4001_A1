@@ -1,7 +1,7 @@
 /**
  *
  * @file interrupts.cpp
- * @author Sasisekhar Govind, Suveatha Karunakaran, Julia Hanlon
+ * @author Sasisekhar Govind
  *
  */
 
@@ -21,75 +21,54 @@ int main(int argc, char** argv) {
     /******************ADD YOUR VARIABLES HERE*************************/
 
     
-    long long now = 0;  // simulated clock in ms
+    long long now = 0;  // clock in ms
 
-    // Timing constants (all in ms) 
-    const int T_SWITCH_MODE = 1;   // switch to/from kernel
-    const int T_SAVE_CONTEXT = 10; // save process context
-    const int T_FIND_VECTOR = 1;   // compute vector memory position
-    const int T_GET_ISR     = 1;   // fetch ISR address
-    const int T_IRET        = 1;   // restore context and return to user
+    // Timing constants (ms)
+    const int SWITCH_MODE = 1;   
+    const int SAVE_CONTEXT = 10; 
+    const int IRET        = 1;
 
-    
-    auto vector_mem_pos = [&](int dev){ return dev * 2; };  // 2 bytes per vector
-
-    // Logger funtion that appends a line "start_time, duration, description" to execution string
+    // Logger: "start_time, duration, description"
     auto logf = [&](long long start, int dur, const std::string& what){
         execution += std::to_string(start) + ", " + std::to_string(dur) + ", " + what + "\n";
-    };
-
-    // Handles a device interrupt request
-    auto service_interrupt = [&](int dev){
-        int isr_time = delays[dev];  
-
-        logf(now, T_SWITCH_MODE, "switch to kernel mode");
-        now += T_SWITCH_MODE;
-
-        logf(now, T_SAVE_CONTEXT, "save context");
-        now += T_SAVE_CONTEXT;
-
-        logf(now, T_FIND_VECTOR, "find vector " + std::to_string(dev) +
-                                  " at mem " + std::to_string(vector_mem_pos(dev)));
-        now += T_FIND_VECTOR;
-
-        logf(now, T_GET_ISR, "get ISR address " + vectors[dev]);
-        now += T_GET_ISR;
-
-        logf(now, isr_time, "execute ISR (END_IO device " + std::to_string(dev) + ")");
-        now += isr_time;
-
-        logf(now, T_IRET, "IRET");
-        now += T_IRET;
-    };
-
-    // Handles a SYSCALL request
-    auto handle_syscall = [&](int dev){
-        int isr_time = delays[dev];  // device-specific ISR time
-
-        logf(now, T_SWITCH_MODE, "switch to kernel mode");
-        now += T_SWITCH_MODE;
-
-        logf(now, T_SAVE_CONTEXT, "save context");
-        now += T_SAVE_CONTEXT;
-
-        logf(now, T_FIND_VECTOR, "find vector " + std::to_string(dev) +
-                                  " at mem " + std::to_string(vector_mem_pos(dev)));
-        now += T_FIND_VECTOR;
-
-        logf(now, T_GET_ISR, "get ISR address " + vectors[dev]);
-        now += T_GET_ISR;
-
-        logf(now, isr_time, "execute ISR (SYSCALL device " + std::to_string(dev) + ")");
-        now += isr_time;
-
-        logf(now, T_IRET, "IRET");
-        now += T_IRET;
     };
 
     // Runs a CPU burst for D ms 
     auto run_cpu = [&](int D){
         logf(now, D, "CPU burst");
         now += D;
+    };
+
+    // Handles a device interrupt request 
+    auto service_interrupt = [&](int dev){
+        int isr_time = delays[dev];
+
+       
+        auto bp = intr_boilerplate(static_cast<int>(now), dev, SAVE_CONTEXT, vectors);
+        execution += bp.first;     
+        now = bp.second;           // update time
+
+        // Execute device-specific ISR activity, then return to user
+        logf(now, isr_time, "execute ISR (END_IO device " + std::to_string(dev) + ")");
+        now += isr_time;
+
+        logf(now, IRET, "IRET");
+        now += IRET;
+    };
+
+    // Handles a SYSCALL request
+    auto handle_syscall = [&](int dev){
+        int isr_time = delays[dev];
+
+        auto bp = intr_boilerplate(static_cast<int>(now), dev, SAVE_CONTEXT, vectors);
+        execution += bp.first;
+        now = bp.second;
+
+        logf(now, isr_time, "execute ISR (SYSCALL device " + std::to_string(dev) + ")");
+        now += isr_time;
+
+        logf(now, IRET, "IRET");
+        now += IRET;
     };
    /******************************************************************/
   
